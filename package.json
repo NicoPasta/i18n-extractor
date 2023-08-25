@@ -1,0 +1,34 @@
+{
+  "name": "i18n-vue3-transform",
+  "version": "1.0.0",
+  "description": "transfrom code and add i18n replacement",
+  "scripts": {
+    "test": "ivt --i18nPath=''"
+  },
+  "bin": {
+    "ivt": "./bin/index.js"
+  },
+  "author": "zyx",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/generator": "^7.22.10",
+    "@babel/helper-plugin-utils": "^7.22.5",
+    "@babel/parser": "^7.16.4",
+    "@babel/traverse": "^7.16.3",
+    "@babel/types": "^7.16.0",
+    "@babel/template": "^7.22.5",
+    "@vue/compiler-core": "^3.2.47",
+    "@vue/compiler-sfc": "^3.2.22",
+    "commander": "^8.3.0",
+    "consola": "^2.15.3",
+    "fs-extra": "^11.1.0",
+    "glob": "^7.2.0",
+    "please-upgrade-node": "^3.2.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^2.4.1",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
+}
