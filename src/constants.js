@@ -35,3 +35,20 @@ exports.NodeTypes = {
   TEXT_CALL: 12,
   VNODE_CALL: 13,
 };
+
+exports.selfClosingTags = [
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+];
