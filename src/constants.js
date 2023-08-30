@@ -1,25 +1,12 @@
-/**
- * 配置项类型
- */
-exports.ConfigOptions = {
-  pattern: "**/*.{vue,js}",
-  ignore: ["node_modules/**"],
-  output: "./zh-CN-extracted.js",
-  importPath: "",
-};
-
-/**
- * 文件类型
- */
-exports.FileType = {
-  JS: ".js",
-  VUE: ".vue",
+export const FileType = {
+  JS: '.js',
+  VUE: '.vue',
 };
 
 /**
  * vue Template ast节点类型
  */
-exports.NodeTypes = {
+export const NodeTypes = {
   ROOT: 0,
   ELEMENT: 1,
   TEXT: 2,
@@ -36,19 +23,19 @@ exports.NodeTypes = {
   VNODE_CALL: 13,
 };
 
-exports.selfClosingTags = [
-  "area",
-  "base",
-  "br",
-  "col",
-  "embed",
-  "hr",
-  "img",
-  "input",
-  "link",
-  "meta",
-  "param",
-  "source",
-  "track",
-  "wbr",
+export const selfClosingTags = [
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
 ];

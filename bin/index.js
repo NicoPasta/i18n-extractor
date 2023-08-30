@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-"use strict";
+'use strict';
 
-import "../lib/index.js";
+import '../lib/index.cjs';

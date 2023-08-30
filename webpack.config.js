@@ -1,10 +1,31 @@
-const path = require("path");
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+import path from 'path';
 
-module.exports = {
-  mode: "production",
-  entry: "./src/index.js",
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export default {
+  mode: 'development',
+  entry: './src/parser.js',
   output: {
-    filename: "main.js",
-    path: path.resolve(__dirname, "lib"),
+    filename: 'index.cjs',
+    path: path.resolve(__dirname, 'lib'),
+    // library: {
+    //   type: "umd",
+    // },
   },
+  resolve: {
+    extensions: ['.js', '.jsx', '.ts', '.tsx'],
+  },
+  // resolve: {
+  //   fallback: {
+  //     path: false,
+  //   },
+  // },
+  target: 'node',
+  devtool: 'source-map',
+  // optimization: {
+  //   minimize: true,
+  // },
 };

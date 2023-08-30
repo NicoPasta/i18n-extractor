@@ -1,82 +1,120 @@
-const { isCN, hasCN } = require("./util");
-const fse = require("fs-extra");
-const { v4: uuidv4 } = require("uuid");
-const { declare } = require("@babel/helper-plugin-utils");
-const babelGenerator = require("@babel/generator").default;
-const babelTreverse = require("@babel/traverse").default;
-const { parse: babelParser } = require("@babel/parser");
-const { parse: vueParser } = require("@vue/compiler-sfc");
-const template = require("@babel/template");
-const path = require("path");
-const {
-  FileType: supportedFileType,
+import { hasCN } from './util.js';
+import { v4 as uuidv4 } from 'uuid';
+import { declare } from '@babel/helper-plugin-utils';
+import generator from '@babel/generator';
+// import {traverse as babelTreverse} from "@babel/traverse";
+import babelTraverse from '@babel/traverse';
+import { createHash } from 'node:crypto';
+
+import { parse as babelParser } from '@babel/parser';
+// const { parse: vueParser } = require("@vue/compiler-sfc");
+import { parse as vueParser } from '@vue/compiler-sfc';
+import babeltemplate from '@babel/template';
+import path from 'path';
+import {
+  FileType as supportedFileType,
   NodeTypes,
   selfClosingTags,
-} = require("./constants");
-const prettier = require("prettier");
+} from './constants.js';
+import prettier from 'prettier';
+import glob from 'glob';
 
-const intl = "i18n";
-const intlPath = "./index.js";
+let _importName, _importPath, _locales;
+const babelGenerator = generator.default;
+const template = babeltemplate.default;
 
-exports.transfrom = function (
+let stop;
+//入口函数
+export const parse = async (
   code,
   locales,
+  // i18n名字
   importName,
+  // i18n路径
   importPath,
-  filename,
-  outputDir
-) {
-  let result = "";
+  filename
+) => {
+  // 初始化内部变量
+  _importName = importName;
+  _importPath = importPath;
+  _locales = locales;
+
+  let result = '';
   const fileType = path.extname(filename);
 
-  if (!supportedFileType[fileType]) {
-    console.warn("unsupported filedtype:" + fileType);
+  if (!Object.values(supportedFileType).includes(fileType)) {
+    console.warn('unsupported filedtype: ' + fileType);
     return;
   }
 
   if (!hasCN(code)) {
-    console.warn("no chinese character in" + filename);
+    console.warn('no chinese character in ' + filename);
     return;
   }
 
   if (fileType === supportedFileType.JS) {
-    const jsAst = transformJS(code, locales, false, false);
-    result = babelGenerator(jsAst);
+    const jsAst = transformJS(code, false, false);
+    result = babelGenerator(jsAst).code;
+    if (stop) {
+      return { result, skip: true };
+    }
+    return { result, skip: false };
   } else {
     const vueDescriptor = vueParser(code).descriptor;
     const templateAst = vueDescriptor.template.ast;
     const scriptSetup = vueDescriptor.scriptSetup?.content;
     const script = vueDescriptor.script?.content;
     vueDescriptor.template.content = generateTemplate({
-      ...transformTemplate(vueDescriptor?.template?.ast),
-      tag: "",
+      ...transformTemplate(templateAst),
+      tag: '',
     });
-    vueDescriptor.script.content = babelGenerator(
-      transformJS(vueDescriptor.script.content)
-    ).code();
+    if (script)
+      vueDescriptor.script.content = babelGenerator(
+        transformJS(script, false, false)
+      ).code;
+    if (scriptSetup)
+      vueDescriptor.scriptSetup.content = babelGenerator(
+        transformJS(scriptSetup, false, true)
+      ).code;
+    // 生成sfc
+    result = await generateSfc(vueDescriptor);
+
+    return { result, skip: false };
   }
 };
 
-const transformTemplate = (ast) => {
+function transformTemplate(ast) {
   if (ast.props.length) {
     ast.props = ast.props.map((prop) => {
       // 指令
       if (prop.type === NodeTypes.DIRECTIVE && prop?.exp?.content) {
-        const jsCode = generateDirectiveCode(
-          transformJS(prop.exp.content, locales, true, false)
+        const l = prop.exp.content.length;
+        const f = prop.exp.content[1];
+        // 指令内容为单引号字符串导致无法读取ast
+        if (prop.exp.content[0] === "'" && prop.exp.content[l - 1] === "'") {
+          prop.exp.content = `\`${prop.exp.content.slice(1, l - 1)}\``;
+        }
+        let jsCode;
+        // if (prop.name === 'key') {
+        //   jsCode = generateDirectiveCode(
+        //     transformJS(prop.exp.content, true, false)
+        //   );
+        // }
+        jsCode = generateDirectiveCode(
+          transformJS(prop.exp.content, true, false)
         );
         prop.exp.content = jsCode;
-        const splitPoint = prop.loc.source.indexOf("=");
-        const attr = prop.loc.source.subString(0, splitPoint);
+        const splitPoint = prop.loc.source.indexOf('=');
+        const attr = prop.loc.source.substring(0, splitPoint);
         prop.loc.source = attr + `="${jsCode}"`;
         return prop;
       }
 
       // 普通属性 替换为v-bind
       if (prop.type === NodeTypes.ATTRIBUTE && prop?.loc?.source) {
-        const localeKey = saveLocaleAndGetkey(prop.loc.source);
+        const localeKey = saveLocaleAndGetkey(prop.value.content);
         return {
-          name: "bind",
+          name: 'bind',
           type: NodeTypes.DIRECTIVE,
           loc: {
             source: `:${prop.name}="$t('${localeKey}')"`,
@@ -89,7 +127,7 @@ const transformTemplate = (ast) => {
   if (ast.children.length) {
     ast.children = ast.children.map((child) => {
       if (child.type === NodeTypes.TEXT && hasCN(child.content)) {
-        const localeKey = saveLocaleAndGetkey(prop.loc.source);
+        const localeKey = saveLocaleAndGetkey(child.content);
         return {
           type: NodeTypes.INTERPOLATION,
           loc: {
@@ -105,7 +143,7 @@ const transformTemplate = (ast) => {
       ) {
         const jsCode = generateDirectiveCode(
           // child.content?.content是js表达式
-          transformJS(child.content?.content, locales, true, false)
+          transformJS(child.content?.content, true, false)
         );
         return {
           type: NodeTypes.INTERPOLATION,
@@ -118,7 +156,7 @@ const transformTemplate = (ast) => {
       // 元素
       // 递归处理
       if (child.type === NodeTypes.ELEMENT) {
-        return this.transformTemplate(child);
+        return transformTemplate(child);
       }
 
       return child;
@@ -126,33 +164,57 @@ const transformTemplate = (ast) => {
   }
 
   return ast;
-};
+}
 
-const transformJS = (code, locales, isInTemplate = false, isSetup = false) => {
+const transformJS = (code, isInTemplate = false, isSetup = false) => {
   const ast = babelParser(code, {
-    sourceType: "module",
+    sourceType: 'unambiguous',
   });
   let shouldImport = false;
   const visitor = {
+    // File: {
+    //   //i18n-disable的不做替换
+    //   enter(path) {
+    //     let stop;
+    //     path.traverse({
+    //       CommentBlock(path) {
+    //         if (path.node.value.includes('i18n-disable')) {
+    //           stop = true;
+    //         }
+    //       },
+    //     });
+    //     if (stop) {
+    //       path.stop();
+    //     }
+    //   },
+    // },
     Program: {
       enter(path) {
+        path.container.comments.forEach((v) => {
+          if (v.value.includes('i18n-disable')) {
+            stop = true;
+          }
+        });
+        if (stop) {
+          path.stop();
+        }
         path.traverse({
-          "StringLiteral|TemplateLiteral"(path) {
-            if (path.node.leadingComments) {
-              // 过滤掉i18n-disable的注释
-              path.node.leadingComments = path.node.leadingComments.filter(
-                (comment, index) => {
-                  if (comment.value.includes("i18n-disable")) {
-                    path.node.skipTransform = true;
-                    return false;
-                  }
-                  return true;
-                }
-              );
-              //   导入导出的路径不变
-              if (path.findParent((p) => p.isImportDeclaration())) {
-                path.node.skipTransform = true;
-              }
+          'StringLiteral|TemplateLiteral'(path) {
+            // if (path.node.leadingComments) {
+            //   // 过滤掉i18n-disable的注释
+            //   path.node.leadingComments = path.node.leadingComments.filter(
+            //     (comment, index) => {
+            //       if (comment.value.includes('i18n-disable')) {
+            //         path.node.skipTransform = true;
+            //         return false;
+            //       }
+            //       return true;
+            //     }
+            //   );
+            // }
+            //   导入导出的路径不变
+            if (path.findParent((p) => p.isImportDeclaration())) {
+              path.node.skipTransform = true;
             }
           },
         });
@@ -164,15 +226,15 @@ const transformJS = (code, locales, isInTemplate = false, isSetup = false) => {
           ImportDeclaration(p) {
             const source = p.node.source.value;
             // 说明已经有导入声明了
-            if (source === intl) {
+            if (source === _importName) {
               shouldImport = false;
             }
           },
         });
         if (shouldImport) {
-          // 导入intl
-          const importAst = api.template.ast(
-            `import ${intl} from '${intlPath}'`
+          // 导入_importName
+          const importAst = template.ast(
+            `import ${_importName} from '${_importPath}'`
           );
           path.node.body.unshift(importAst);
         }
@@ -180,7 +242,7 @@ const transformJS = (code, locales, isInTemplate = false, isSetup = false) => {
     },
     StringLiteral(path) {
       //
-      if (path.node.skipTransform || !isCN(path.node.value)) {
+      if (path.node.skipTransform || !hasCN(path.node.value)) {
         return;
       }
 
@@ -189,8 +251,7 @@ const transformJS = (code, locales, isInTemplate = false, isSetup = false) => {
       let replaceExpression = getReplaceExpressionAndSaveLocale(
         path,
         isInTemplate,
-        isSetup,
-        locales
+        isSetup
       );
 
       path.replaceWith(replaceExpression);
@@ -201,12 +262,12 @@ const transformJS = (code, locales, isInTemplate = false, isSetup = false) => {
       if (path.node.skipTransform) {
         return;
       }
-      const qua = path.get("quasis");
-      const hasCN = qua.some((v) => {
-        const a = isCN(v.node.value.raw);
+      const qua = path.get('quasis');
+      const includeCNCharacter = qua.some((v) => {
+        const a = hasCN(v.node.value.raw);
         return a;
       });
-      if (!hasCN) return;
+      if (!includeCNCharacter) return;
       if (path.node.skipTransform) {
         return;
       }
@@ -218,8 +279,7 @@ const transformJS = (code, locales, isInTemplate = false, isSetup = false) => {
       replaceExpression = getReplaceExpressionAndSaveLocale(
         path,
         isInTemplate,
-        isSetup,
-        locales
+        isSetup
       );
 
       path.replaceWith(replaceExpression);
@@ -227,7 +287,7 @@ const transformJS = (code, locales, isInTemplate = false, isSetup = false) => {
     },
   };
 
-  babelTreverse(ast, visitor);
+  babelTraverse.default(ast, visitor);
   return ast;
 };
 
@@ -236,53 +296,51 @@ function generateDirectiveCode(ast) {
   return babelGenerator(ast, {
     compact: false,
     jsescOption: {
-      quotes: "single",
+      quotes: 'single',
     },
-  }).code.replace(/;/gm, "");
+  }).code.replace(/;/gm, '');
 }
 
-function getReplaceExpressionAndSaveLocale(
-  path,
-  isInTemplate,
-  isSetup,
-  locales
-) {
-  const expressionParams = path.isTemplateLiteral()
-    ? path.node.expressions.map((item) => generate(item).code)
-    : null;
+function getReplaceExpressionAndSaveLocale(path, isInTemplate, isSetup) {
+  let value, expressionParams;
+  if (path.isTemplateLiteral()) {
+    expressionParams = path.node.expressions.map(
+      (item) => babelGenerator(item).code
+    );
+    value = path
+      .get('quasis')
+      .map((item) => item.node.value.raw)
+      .reduce((prev, cur, index) => {
+        // 创建placeholder
+        return prev + `{${index - 1}}` + cur;
+      });
+  } else {
+    value = path.node.value;
+  }
 
-  const value = expressionParams?.length
-    ? path
-        .get("quasis")
-        .map((item) => item.node.value.raw)
-        .reduce((prev, cur, index) => {
-          // 创建placeholder
-          return prev + `{${index - 1}}` + cur;
-        })
-    : path.node.value;
+  const key = generateHash(value);
 
-  const key = uuidv4();
+  _locales[key] = value;
 
-  locales[key] = value;
-
+  let replacement;
   // this.$t
   if (!isSetup && !isInTemplate) {
     replacement = template.ast(
       `this.$t('${key}'${
         // 传递expressionParams
         expressionParams?.length
-          ? "," + "[" + expressionParams.join(",") + "]"
-          : ""
+          ? ',' + '[' + expressionParams.join(',') + ']'
+          : ''
       })`
     ).expression;
   } else {
     // 模版或者js
-    let replacement = template.ast(
-      `${isInTemplate ? "$t" : intl + ".t"}('${key}'${
+    replacement = template.ast(
+      `${isInTemplate ? '$t' : _importName + '.t'}('${key}'${
         // 传递expressionParams
         expressionParams?.length
-          ? "," + "[" + expressionParams.join(",") + "]"
-          : ""
+          ? ',' + '[' + expressionParams.join(',') + ']'
+          : ''
       })`
     ).expression;
   }
@@ -290,24 +348,22 @@ function getReplaceExpressionAndSaveLocale(
   return replacement;
 }
 
-function saveLocaleAndGetkey(str, locales) {
-  const locale = char.trim();
-  const key = uuidv4();
-  locales[key] = locale;
+function saveLocaleAndGetkey(str) {
+  const locale = str.trim();
+  const key = generateHash(str);
+  _locales[key] = locale;
   return key;
 }
 
 function generateElementAttr(attrs) {
-  return attrs.map((attr) => attr.loc.source).join(" ");
+  return attrs.map((attr) => attr.loc.source).join(' ');
 }
 
 function generateElement(node, children) {
-  let attributes = "";
-
+  let attributes = '';
   if (node.props.length) {
     attributes = ` ${generateElementAttr(node.props)}`;
   }
-
   if (node.tag) {
     if (node.isSelfClosing || selfClosingTags.includes(node.tag)) {
       return `<${node.tag}${attributes} />`;
@@ -319,11 +375,11 @@ function generateElement(node, children) {
   return children;
 }
 
-function generateTemplate(templateAst, children = "") {
+function generateTemplate(templateAst, children = '') {
   if (templateAst?.children?.length) {
     children = templateAst.children.reduce(
       (result, child) => result + generateTemplate(child),
-      ""
+      ''
     );
   }
 
@@ -335,8 +391,8 @@ function generateTemplate(templateAst, children = "") {
   return templateAst.loc.source;
 }
 
-function generateSfc(descriptor) {
-  let result = "";
+async function generateSfc(descriptor) {
+  let result = '';
   const { template, script, scriptSetup, styles, customBlocks } = descriptor;
   [template, script, scriptSetup, ...styles, ...customBlocks].forEach(
     (block) => {
@@ -353,15 +409,30 @@ function generateSfc(descriptor) {
             return attrCode;
           },
           // 初始值为空格，与type隔开
-          " "
+          ' '
         )}>${block.content}</${block.type}>`;
       }
     }
   );
 
-  return prettier.format(result, {
-    parser: "vue",
-    semi: true,
-    singleQuote: true,
-  });
+  const file = glob.sync('**/.prettierrc.*');
+  if (file.length) {
+    let prettierConfigpath = path.resolve(process.cwd(), file[0]);
+    const options = await prettier.resolveConfig(prettierConfigpath);
+    options.parser = 'vue';
+    return prettier.format(result, options);
+  } else {
+    return prettier.format(result, {
+      parser: 'vue',
+      semi: true,
+      singleQuote: true,
+    });
+  }
+}
+
+export function generateHash(str) {
+  // 文字内容去重
+  const hash = createHash('md5');
+  hash.update(str);
+  return hash.digest('hex').slice();
 }

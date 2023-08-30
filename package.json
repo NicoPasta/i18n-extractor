@@ -1,34 +1,52 @@
 {
-  "name": "i18n-vue3-transform",
+  "name": "i18n-vue3-transformer",
   "version": "1.0.0",
-  "description": "transfrom code and add i18n replacement",
+  "description": "i18n-vue3-transformer",
   "scripts": {
-    "test": "ivt --i18nPath=''"
+    "build": "webpack -c ./webpack.config.js"
   },
+  "type": "module",
   "bin": {
-    "ivt": "./bin/index.js"
+    "vue3transform": "./bin/index.cjs"
   },
+  "files": [
+    "bin",
+    "lib"
+  ],
   "author": "zyx",
   "license": "MIT",
   "dependencies": {
+    "@babel/core": "^7.22.11",
     "@babel/generator": "^7.22.10",
     "@babel/helper-plugin-utils": "^7.22.5",
     "@babel/parser": "^7.16.4",
+    "@babel/preset-env": "^7.22.10",
     "@babel/template": "^7.22.5",
     "@babel/traverse": "^7.16.3",
     "@babel/types": "^7.16.0",
     "@vue/compiler-core": "^3.2.47",
     "@vue/compiler-sfc": "^3.2.22",
     "commander": "^8.3.0",
-    "consola": "^2.15.3",
+    "eslint": "^8.48.0",
     "fs-extra": "^11.1.0",
     "glob": "^7.2.0",
     "please-upgrade-node": "^3.2.0",
+    "prettier": "^2.8.8",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "prettier": "^2.8.8",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "vue3TransformOptions": {
+    "pattern": "**/*.{vue.js}",
+    "ignore": "['node_modules/**']",
+    "importPath": "./index.js",
+    "importName": "i18n",
+    "outputPath": "./output"
   }
 }
