@@ -10,8 +10,8 @@ const __dirname = dirname(__filename);
 
 (() => {
   let options = {
-    pattern: '**/*.{vue.js}',
-    // pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
+    // pattern: '**/*.{vue.js}',
+    pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
     ignore: ['node_modules/**'],
     importPath: '',
     importName: '',

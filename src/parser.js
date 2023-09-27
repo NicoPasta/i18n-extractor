@@ -124,11 +124,10 @@ function transformTemplate(ast) {
               source: `:${prop.name}="$t('${localeKey}')"`,
             },
           };
-        } else {
-          // 原样返回
-          return prop;
         }
       }
+
+      return prop;
     });
   }
 
