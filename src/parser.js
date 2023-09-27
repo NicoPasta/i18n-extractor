@@ -2,11 +2,8 @@ import { hasCN } from './util.js';
 import generator from '@babel/generator';
 import babelTraverse from '@babel/traverse';
 import { createHash } from 'node:crypto';
-
 import { parse as babelParser } from '@babel/parser';
 import { parse as vueParser } from '@vue/compiler-sfc';
-
-// import { compile } from 'vue-template-compiler';
 import babeltemplate from '@babel/template';
 import path from 'path';
 import {
@@ -15,7 +12,7 @@ import {
   selfClosingTags,
 } from './constants.js';
 import prettier from 'prettier';
-import glob from 'glob';
+import { glob } from 'glob';
 
 let _importName, _importPath, _locales;
 const babelGenerator = generator.default;
@@ -104,6 +101,10 @@ function transformTemplate(ast) {
           c = `(${c})`;
         }
         jsCode = generateDirectiveCode(transformJS(c, true, false));
+        // 去掉括号
+        if (jsCode.startsWith('(') && jsCode.endsWith(')')) {
+          jsCode = jsCode.replace(/^\(|\)$/g, '');
+        }
 
         prop.exp.content = jsCode;
         const splitPoint = prop.loc.source.indexOf('=');

@@ -1,6 +1,6 @@
 import path from 'path';
 import fse from 'fs-extra';
-import glob from 'glob';
+import {glob} from 'glob';
 import { Command } from 'commander';
 import { parse } from './parser.js';
 import { fileURLToPath } from 'node:url';
@@ -10,8 +10,8 @@ const __dirname = dirname(__filename);
 
 (() => {
   let options = {
-    // pattern: '**/*.{vue.js}',
-    pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
+    pattern: '**/*.{vue.js}',
+    // pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
     ignore: ['node_modules/**'],
     importPath: '',
     importName: '',

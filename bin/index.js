@@ -2,5 +2,7 @@
 
 'use strict';
 
-// import '../lib/index.cjs';
-import '../src/index.js';
+import '../lib/index.cjs';
+
+
+// import '../src/index.js';

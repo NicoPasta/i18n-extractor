@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "i18n-vue-transformer",
   "scripts": {
-    "build": "webpack -c ./webpack.config.js"
+    "build": "webpack -c ./webpack.config.js --mode=production"
   },
   "type": "module",
   "bin": {
-    "vuetransform": "./bin/index.js"
+    "_vtrans": "./bin/index.js"
   },
   "files": [
     "bin",
@@ -15,41 +15,33 @@
   ],
   "author": "zyx",
   "license": "MIT",
-  "dependencies": {
-    "@babel/core": "^7.22.11",
-    "@babel/generator": "^7.22.10",
-    "@babel/helper-plugin-utils": "^7.22.5",
-    "@babel/parser": "^7.16.4",
-    "@babel/preset-env": "^7.22.10",
-    "@babel/template": "^7.22.5",
-    "@babel/traverse": "^7.16.3",
-    "@babel/types": "^7.16.0",
-    "@vue/compiler-core": "^3.2.47",
-    "@vue/compiler-sfc": "^3.2.22",
-    "commander": "^8.3.0",
-    "eslint": "^8.48.0",
-    "fs-extra": "^11.1.0",
-    "glob": "^7.2.0",
-    "please-upgrade-node": "^3.2.0",
-    "prettier": "^2.8.8",
-    "uuid": "^9.0.0",
-    "vue": "2.6.14",
-    "vue-template-compiler": "^2.6.14"
-  },
   "devDependencies": {
-    "prettier": "^2.8.8",
+    "@babel/preset-env": "^7.22.10",
+    "terser-webpack-plugin": "^5.3.9",
+    "uglify-js": "^3.17.4",
     "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
+    "webpack-bundle-analyzer": "^4.9.1",
+    "webpack-cli": "^5.1.4",
+    "babel-loader": "^9.1.3"
   },
   "engines": {
     "node": ">=16.0.0"
   },
-  "vueTransformOptions": {
-    "ignore": [
-      "node_modules/**"
-    ],
-    "importPath": "./index.js",
-    "importName": "i18n",
-    "outputPath": "./src"
+  "peerDependencies": {
+    "@babel/core": ">=7.0.0",
+    "@babel/generator": ">=7.22.10",
+    "@babel/helper-plugin-utils": ">=7.22.5",
+    "@babel/parser": ">=7.16.4",
+    "@babel/template": ">=7.22.5",
+    "@babel/traverse": ">=7.16.3",
+    "@babel/types": ">=7.16.0",
+    "@vue/compiler-core": ">=3.2.47",
+    "@vue/compiler-sfc": ">=3.2.22",
+    "commander": ">=8.3.0",
+    "eslint": ">=8.48.0",
+    "fs-extra": ">=11.1.0",
+    "glob": ">=7.2.0",
+    "prettier": ">=2.0.0",
+    "vue-i18n": ">=9.0.0"
   }
 }
