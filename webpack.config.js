@@ -11,18 +11,11 @@ export default {
   output: {
     filename: 'index.cjs',
     path: path.resolve(__dirname, 'lib'),
-    // library: {
-    //   type: "umd",
-    // },
   },
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
   },
-  // resolve: {
-  //   fallback: {
-  //     path: false,
-  //   },
-  // },
+
   target: 'node',
   devtool: 'source-map',
   // optimization: {

@@ -1,14 +1,12 @@
 import { hasCN } from './util.js';
-import { v4 as uuidv4 } from 'uuid';
-import { declare } from '@babel/helper-plugin-utils';
 import generator from '@babel/generator';
-// import {traverse as babelTreverse} from "@babel/traverse";
 import babelTraverse from '@babel/traverse';
 import { createHash } from 'node:crypto';
 
 import { parse as babelParser } from '@babel/parser';
-// const { parse: vueParser } = require("@vue/compiler-sfc");
 import { parse as vueParser } from '@vue/compiler-sfc';
+
+// import { compile } from 'vue-template-compiler';
 import babeltemplate from '@babel/template';
 import path from 'path';
 import {
@@ -53,14 +51,17 @@ export const parse = async (
   }
 
   if (fileType === supportedFileType.JS) {
-    const jsAst = transformJS(code, false, false);
+    const jsAst = transformJS(code, false, true);
     result = babelGenerator(jsAst).code;
     if (stop) {
       return { result, skip: true };
     }
     return { result, skip: false };
   } else {
-    const vueDescriptor = vueParser(code).descriptor;
+    let vueDescriptor;
+
+    vueDescriptor = vueParser(code).descriptor;
+
     const templateAst = vueDescriptor.template.ast;
     const scriptSetup = vueDescriptor.scriptSetup?.content;
     const script = vueDescriptor.script?.content;
@@ -89,37 +90,44 @@ function transformTemplate(ast) {
       // 指令
       if (prop.type === NodeTypes.DIRECTIVE && prop?.exp?.content) {
         const l = prop.exp.content.length;
-        const f = prop.exp.content[1];
         // 指令内容为单引号字符串导致无法读取ast
         if (prop.exp.content[0] === "'" && prop.exp.content[l - 1] === "'") {
           prop.exp.content = `\`${prop.exp.content.slice(1, l - 1)}\``;
         }
+
         let jsCode;
-        // if (prop.name === 'key') {
-        //   jsCode = generateDirectiveCode(
-        //     transformJS(prop.exp.content, true, false)
-        //   );
-        // }
-        jsCode = generateDirectiveCode(
-          transformJS(prop.exp.content, true, false)
-        );
+        // 去掉空格和换行
+        let c = prop.exp.content.replace(/[\n]/g, '');
+
+        //  babel会把{}识别为块作用域,所以要处理一下
+        if (/^\{.*\}$/.test(c)) {
+          c = `(${c})`;
+        }
+        jsCode = generateDirectiveCode(transformJS(c, true, false));
+
         prop.exp.content = jsCode;
         const splitPoint = prop.loc.source.indexOf('=');
         const attr = prop.loc.source.substring(0, splitPoint);
+        // 把指令拼回去
         prop.loc.source = attr + `="${jsCode}"`;
         return prop;
       }
 
       // 普通属性 替换为v-bind
       if (prop.type === NodeTypes.ATTRIBUTE && prop?.loc?.source) {
-        const localeKey = saveLocaleAndGetkey(prop.value.content);
-        return {
-          name: 'bind',
-          type: NodeTypes.DIRECTIVE,
-          loc: {
-            source: `:${prop.name}="$t('${localeKey}')"`,
-          },
-        };
+        if (hasCN(prop?.loc?.source)) {
+          const localeKey = saveLocaleAndGetkey(prop.value.content);
+          return {
+            name: 'bind',
+            type: NodeTypes.DIRECTIVE,
+            loc: {
+              source: `:${prop.name}="$t('${localeKey}')"`,
+            },
+          };
+        } else {
+          // 原样返回
+          return prop;
+        }
       }
     });
   }
@@ -141,9 +149,11 @@ function transformTemplate(ast) {
         child.type === NodeTypes.INTERPOLATION &&
         hasCN(child.content?.content)
       ) {
+        // 去掉空格和换行
+        const c = child.content?.content.replace(/[\n]/g, '');
         const jsCode = generateDirectiveCode(
           // child.content?.content是js表达式
-          transformJS(child.content?.content, true, false)
+          transformJS(c, true, false)
         );
         return {
           type: NodeTypes.INTERPOLATION,
@@ -336,7 +346,7 @@ function getReplaceExpressionAndSaveLocale(path, isInTemplate, isSetup) {
   } else {
     // 模版或者js
     replacement = template.ast(
-      `${isInTemplate ? '$t' : _importName + '.t'}('${key}'${
+      `${isInTemplate ? '$t' : _importName + '.global.t'}('${key}'${
         // 传递expressionParams
         expressionParams?.length
           ? ',' + '[' + expressionParams.join(',') + ']'
@@ -356,7 +366,7 @@ function saveLocaleAndGetkey(str) {
 }
 
 function generateElementAttr(attrs) {
-  return attrs.map((attr) => attr.loc.source).join(' ');
+  return attrs.map((attr) => attr?.loc?.source).join(' ');
 }
 
 function generateElement(node, children) {

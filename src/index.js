@@ -2,8 +2,6 @@ import path from 'path';
 import fse from 'fs-extra';
 import glob from 'glob';
 import { Command } from 'commander';
-import pleaseUpgradeNode from 'please-upgrade-node';
-// import packageJson from "../package.json" assert { type: `json` };;
 import { parse } from './parser.js';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -12,12 +10,13 @@ const __dirname = dirname(__filename);
 
 (() => {
   let options = {
-    pattern: '**/*.{vue.js}',
-    // pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
+    // pattern: '**/*.{vue.js}',
+    pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
     ignore: ['node_modules/**'],
     importPath: '',
     importName: '',
     outputPath: '',
+    outputFileName: 'zh-CN.json',
   };
 
   try {
@@ -25,13 +24,10 @@ const __dirname = dirname(__filename);
       path.resolve(process.cwd(), 'package.json'),
       'utf8'
     );
+    // 读取package.json中的配置
     const packageParse = JSON.parse(localPackageJson);
-
-    if (packageParse.config?.vue3TransformOptions) {
-      options = {
-        ...options,
-        ...packageParse.config.vue3TransformOptions,
-      };
+    if (packageParse?.vueTransformOptions) {
+      Object.assign(options, packageParse.vueTransformOptions);
     }
   } catch (err) {
     console.error(err);
@@ -39,43 +35,55 @@ const __dirname = dirname(__filename);
   }
   const command = new Command();
 
+  // 通过命令配置
   command
-    .name('i18n-vue3-transformer')
-    .command('vue3transform')
-    .option('-p --importPath', "imported variable's filepath")
-    .option('-n --importName', "imported variable's name")
-    .option('-o --outputPath', 'output filepath')
+    .name('i18n-vue-transformer')
+    .option('-p --importPath <path>', "imported variable's filepath")
+    .option('-n --importName <name>', "imported variable's name")
+    .option('-o --outputPath <outputPath>', 'output file path')
+    .option('-o --outputFileName <outputname>', 'output file name')
+
     .action((name, inputOptions, command) => {
-      if (inputOptions.outputPath) {
-        options.outputPath = inputOptions.outputPath;
+      if (inputOptions._optionValues.outputPath) {
+        options.outputPath = inputOptions._optionValues.outputPath;
       }
 
-      if (inputOptions.importPath) {
-        options.importPath = inputOptions.importPath;
+      if (inputOptions._optionValues.importPath) {
+        options.importPath = inputOptions._optionValues.importPath;
       }
 
-      if (inputOptions.importName) {
-        options.importName = inputOptions.importName;
+      if (inputOptions._optionValues.importName) {
+        options.importName = inputOptions._optionValues.importName;
+      }
+      if (inputOptions._optionValues.outputFileName) {
+        options.outputFileName = inputOptions._optionValues.outputFileName;
       }
     })
     .parse(process.argv);
 
   if (!options.importPath || !options.importName || !options.importPath) {
-    console.error('Please set import name, filepath and output filepath');
+    console.error(
+      'Please set importName, importPath and outputPath, all of them are required'
+    );
     return;
   }
 
   let locales = {};
   const files = glob.sync(options.pattern, { ignore: options.ignore });
-  const outputPath = path.resolve(
-    process.cwd(),
-    options.output + '/zh_CN.json'
-  );
+  const outputPath = path.resolve(process.cwd(), options.outputPath);
+  // 去掉文件类型
+  const filename = options.outputFileName.split(/\.(?=[^.]+$)/)[0] + '.json';
   if (fse.existsSync(outputPath)) {
-    const content = fse.readFileSync(outputPath, 'utf8');
-    if (content) {
-      locales = JSON.parse(content);
-    }
+    // 读取文件
+    try {
+      const content = fse.readFileSync(outputPath + '/' + filename, 'utf8');
+      if (content) {
+        locales = JSON.parse(content);
+      }
+    } catch (e) {}
+  } else {
+    console.error("outputPath doesn't exists");
+    return;
   }
 
   files.forEach(async (filename) => {
@@ -106,14 +114,15 @@ const __dirname = dirname(__filename);
         }
       }
     } catch (err) {
+      console.error(`error in ${filename}:`);
       console.log(err);
     }
   });
 
   if (Object.keys(locales).length) {
-    fse.ensureDirSync(options.output);
+    fse.ensureDirSync(options.outputPath);
     fse.writeFileSync(
-      path.join(options.output, 'zh_CN.json'),
+      path.join(options.outputPath, 'zh_CN.json'),
       JSON.stringify(locales, null, '\t'),
       'utf8'
     );
