@@ -1,13 +1,13 @@
 {
-  "name": "i18n-vue-transformer",
+  "name": "vue-i18n-transformer",
   "version": "1.0.0",
-  "description": "i18n-vue-transformer",
+  "description": "vue-i18n-transformer",
   "scripts": {
     "build": "webpack -c ./webpack.config.js --mode=production"
   },
   "type": "module",
   "bin": {
-    "_vtrans": "./bin/index.js"
+    "trans": "./bin/index.js"
   },
   "files": [
     "bin",

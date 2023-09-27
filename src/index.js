@@ -13,9 +13,9 @@ const __dirname = dirname(__filename);
     pattern: '**/*.{vue.js}',
     // pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
     ignore: ['node_modules/**'],
-    importPath: '',
-    importName: '',
-    outputPath: '',
+    importPath: null,
+    importName: null,
+    outputPath: null,
     outputFileName: 'zh-CN.json',
   };
 
@@ -26,8 +26,8 @@ const __dirname = dirname(__filename);
     );
     // 读取package.json中的配置
     const packageParse = JSON.parse(localPackageJson);
-    if (packageParse?.vueTransformOptions) {
-      Object.assign(options, packageParse.vueTransformOptions);
+    if (packageParse?.i18nExtractOptions) {
+      Object.assign(options, packageParse.i18nExtractOptions);
     }
   } catch (err) {
     console.error(err);
@@ -42,6 +42,8 @@ const __dirname = dirname(__filename);
     .option('-n --importName <name>', "imported variable's name")
     .option('-o --outputPath <outputPath>', 'output file path')
     .option('-o --outputFileName <outputname>', 'output file name')
+    .option('-ptn --pattern <pattern>', 'file path pattern')
+    .option('-i --ignore <ignore>', 'ignore file path')
 
     .action((name, inputOptions, command) => {
       if (inputOptions._optionValues.outputPath) {
@@ -58,10 +60,16 @@ const __dirname = dirname(__filename);
       if (inputOptions._optionValues.outputFileName) {
         options.outputFileName = inputOptions._optionValues.outputFileName;
       }
+      if (inputOptions._optionValues.pattern) {
+        options.pattern = inputOptions._optionValues.pattern;
+      }
+      if (inputOptions._optionValues.ignore) {
+        options.ignore = inputOptions._optionValues.ignore;
+      }
     })
     .parse(process.argv);
 
-  if (!options.importPath || !options.importName || !options.importPath) {
+  if (!options.importPath || !options.importName || !options.outputPath || !options.pattern || !options.ignore ) {
     console.error(
       'Please set importName, importPath and outputPath, all of them are required'
     );
