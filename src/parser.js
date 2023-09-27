@@ -62,7 +62,7 @@ export const parse = async (
     const templateAst = vueDescriptor.template.ast;
     const scriptSetup = vueDescriptor.scriptSetup?.content;
     const script = vueDescriptor.script?.content;
-    vueDescriptor.template.content = generateTemplate({
+    vueDescriptor.template.content = ({
       ...transformTemplate(templateAst),
       tag: '',
     });
