@@ -56,27 +56,28 @@ export const parse = async (
     }
     return { result, skip: false };
   } else {
-    let vueDescriptor;
+    let sfcDescriptor;
 
-    vueDescriptor = vueParser(code).descriptor;
+    sfcDescriptor = vueParser(code).descriptor;
 
-    const templateAst = vueDescriptor.template.ast;
-    const scriptSetup = vueDescriptor.scriptSetup?.content;
-    const script = vueDescriptor.script?.content;
-    vueDescriptor.template.content = generateTemplate({
+    const templateAst = sfcDescriptor.template.ast;
+    const scriptSetup = sfcDescriptor.scriptSetup?.content;
+    const script = sfcDescriptor.script?.content;
+    sfcDescriptor.template.content = generateTemplate({
       ...transformTemplate(templateAst),
+      // 生成template内部的字符串，因此不要带template标签
       tag: '',
     });
     if (script)
-      vueDescriptor.script.content = babelGenerator(
+      sfcDescriptor.script.content = babelGenerator(
         transformJS(script, false, false),
       ).code;
     if (scriptSetup)
-      vueDescriptor.scriptSetup.content = babelGenerator(
+      sfcDescriptor.scriptSetup.content = babelGenerator(
         transformJS(scriptSetup, false, true),
       ).code;
     // 生成sfc
-    result = await generateSfc(vueDescriptor);
+    result = await generateSfc(sfcDescriptor);
 
     return { result, skip: false };
   }
@@ -375,6 +376,34 @@ function generateTemplate(templateAst, children = '') {
   // 文本或者插值
   return templateAst.loc.source;
 }
+// function generateElement(node, childStr) {
+//   // 非元素
+//   if (node.type !== NodeTypes.ELEMENT) {
+//     return node.loc.source;
+//   }
+
+//   let attr = ' ';
+//   if (node.props?.length) {
+//     attr += generateElementAttr(node.props);
+//   }
+
+//   if (node.tag) {
+//     if (node.isSelfClosing || selfClosingTags.includes(node.tag)) {
+//       return `<${node.tag}${attr} />`;
+//     }
+//     return `<${node.tag}${attr}>${childStr}</${node.tag}>`;
+//   }
+//   // 最外层节点
+//   return childStr;
+// }
+// function generateTemplate(ast) {
+//   let childStr = '';
+//   if (ast.children?.length) {
+//     childStr = ast.children.map((v) => generateTemplate(v)).join('');
+//   }
+
+//   return generateElement(ast, childStr);
+// }
 
 async function generateSfc(descriptor) {
   let result = '';

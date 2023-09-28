@@ -10,8 +10,8 @@ const __dirname = dirname(__filename);
 
 (() => {
   let options = {
-    // pattern: '**/*.{vue.js}',
-    pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
+    pattern: '**/*.{vue.js}',
+    // pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
     ignore: ['node_modules/**'],
     importPath: null,
     importName: null,
@@ -69,13 +69,7 @@ const __dirname = dirname(__filename);
     })
     .parse(process.argv);
 
-  if (
-    !options.importPath ||
-    !options.importName ||
-    !options.outputPath ||
-    !options.pattern ||
-    !options.ignore
-  ) {
+  if (!options.importPath || !options.importName || !options.outputPath) {
     console.error(
       'Please set importName, importPath and outputPath, all of them are required',
     );
@@ -101,6 +95,8 @@ const __dirname = dirname(__filename);
   }
 
   files.forEach(async (filename) => {
+    const res1 = process.cwd();
+    const res2 = filename;
     const filePath = path.resolve(process.cwd(), filename);
     console.info(`detecting file: ${filePath}`);
     const sourceCode = fse.readFileSync(filePath, 'utf8');

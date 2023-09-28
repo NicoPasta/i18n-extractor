@@ -28,22 +28,31 @@
     "commander": "^8.3.0",
     "eslint": "^8.48.0",
     "fs-extra": "^11.1.0",
-    "glob": "^7.2.0",
+    "glob": "^10.3.10",
     "prettier": "^2.0.0"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.22.10",
+    "babel-loader": "^9.1.3",
     "terser-webpack-plugin": "^5.3.9",
     "uglify-js": "^3.17.4",
     "webpack": "^5.88.2",
     "webpack-bundle-analyzer": "^4.9.1",
-    "webpack-cli": "^5.1.4",
-    "babel-loader": "^9.1.3"
+    "webpack-cli": "^5.1.4"
   },
   "engines": {
     "node": ">=16.0.0"
   },
   "peerDependencies": {
     "vue-i18n": ">=9.0.0"
+  },
+  "i18nExtractOptions": {
+    "ignore": [
+      "node_modules/**"
+    ],
+    "importPath": "/src/i18n",
+    "importName": "i18n",
+    "outputPath": "./src",
+    "outputFileName": "zh_CN.json"
   }
 }
