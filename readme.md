@@ -1,6 +1,6 @@
 ### vue-i18n-transfromer
 
-基于babel和@vue/compiler-sfc，将当前工作目录（cwd）内的汉语提取为JSON到指定输出目录，同时将原有内容替换为i18n的占位符（如$t()或i8n.global.t()），以实现自动国际化。
+基于babel和@vue/compiler-sfc，将当前工作目录（cwd）内的汉语字符串提取为JSON到指定输出目录，同时将原有内容替换为i18n的占位符（如$t()或i8n.global.t()），以实现自动国际化。
 
 ### 安装
 

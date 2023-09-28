@@ -27,7 +27,7 @@ export const parse = async (
   importName,
   // i18n路径
   importPath,
-  filename
+  filename,
 ) => {
   // 初始化内部变量
   _importName = importName;
@@ -50,6 +50,7 @@ export const parse = async (
   if (fileType === supportedFileType.JS) {
     const jsAst = transformJS(code, false, true);
     result = babelGenerator(jsAst).code;
+    // i18n注释
     if (stop) {
       return { result, skip: true };
     }
@@ -62,17 +63,17 @@ export const parse = async (
     const templateAst = vueDescriptor.template.ast;
     const scriptSetup = vueDescriptor.scriptSetup?.content;
     const script = vueDescriptor.script?.content;
-    vueDescriptor.template.content = ({
+    vueDescriptor.template.content = generateTemplate({
       ...transformTemplate(templateAst),
       tag: '',
     });
     if (script)
       vueDescriptor.script.content = babelGenerator(
-        transformJS(script, false, false)
+        transformJS(script, false, false),
       ).code;
     if (scriptSetup)
       vueDescriptor.scriptSetup.content = babelGenerator(
-        transformJS(scriptSetup, false, true)
+        transformJS(scriptSetup, false, true),
       ).code;
     // 生成sfc
     result = await generateSfc(vueDescriptor);
@@ -117,7 +118,7 @@ function transformTemplate(ast) {
       // 普通属性 替换为v-bind
       if (prop.type === NodeTypes.ATTRIBUTE && prop?.loc?.source) {
         if (hasCN(prop?.loc?.source)) {
-          const localeKey = saveLocaleAndGetkey(prop.value.content);
+          const localeKey = saveLocale(prop.value.content);
           return {
             name: 'bind',
             type: NodeTypes.DIRECTIVE,
@@ -135,7 +136,7 @@ function transformTemplate(ast) {
   if (ast.children.length) {
     ast.children = ast.children.map((child) => {
       if (child.type === NodeTypes.TEXT && hasCN(child.content)) {
-        const localeKey = saveLocaleAndGetkey(child.content);
+        const localeKey = saveLocale(child.content);
         return {
           type: NodeTypes.INTERPOLATION,
           loc: {
@@ -153,7 +154,7 @@ function transformTemplate(ast) {
         const c = child.content?.content.replace(/[\n]/g, '');
         const jsCode = generateDirectiveCode(
           // child.content?.content是js表达式
-          transformJS(c, true, false)
+          transformJS(c, true, false),
         );
         return {
           type: NodeTypes.INTERPOLATION,
@@ -182,22 +183,6 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
   });
   let shouldImport = false;
   const visitor = {
-    // File: {
-    //   //i18n-disable的不做替换
-    //   enter(path) {
-    //     let stop;
-    //     path.traverse({
-    //       CommentBlock(path) {
-    //         if (path.node.value.includes('i18n-disable')) {
-    //           stop = true;
-    //         }
-    //       },
-    //     });
-    //     if (stop) {
-    //       path.stop();
-    //     }
-    //   },
-    // },
     Program: {
       enter(path) {
         path.container.comments.forEach((v) => {
@@ -244,7 +229,7 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
         if (shouldImport) {
           // 导入_importName
           const importAst = template.ast(
-            `import ${_importName} from '${_importPath}'`
+            `import ${_importName} from '${_importPath}'`,
           );
           path.node.body.unshift(importAst);
         }
@@ -258,11 +243,7 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
 
       shouldImport = true;
 
-      let replaceExpression = getReplaceExpressionAndSaveLocale(
-        path,
-        isInTemplate,
-        isSetup
-      );
+      let replaceExpression = getReplaceExpression(path, isInTemplate, isSetup);
 
       path.replaceWith(replaceExpression);
       path.skip();
@@ -286,11 +267,7 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
 
       let replaceExpression;
 
-      replaceExpression = getReplaceExpressionAndSaveLocale(
-        path,
-        isInTemplate,
-        isSetup
-      );
+      replaceExpression = getReplaceExpression(path, isInTemplate, isSetup);
 
       path.replaceWith(replaceExpression);
       path.skip();
@@ -311,11 +288,11 @@ function generateDirectiveCode(ast) {
   }).code.replace(/;/gm, '');
 }
 
-function getReplaceExpressionAndSaveLocale(path, isInTemplate, isSetup) {
+function getReplaceExpression(path, isInTemplate, isSetup) {
   let value, expressionParams;
   if (path.isTemplateLiteral()) {
     expressionParams = path.node.expressions.map(
-      (item) => babelGenerator(item).code
+      (item) => babelGenerator(item).code,
     );
     value = path
       .get('quasis')
@@ -328,9 +305,7 @@ function getReplaceExpressionAndSaveLocale(path, isInTemplate, isSetup) {
     value = path.node.value;
   }
 
-  const key = generateHash(value);
-
-  _locales[key] = value;
+  const key = saveLocale(value);
 
   let replacement;
   // this.$t
@@ -341,7 +316,7 @@ function getReplaceExpressionAndSaveLocale(path, isInTemplate, isSetup) {
         expressionParams?.length
           ? ',' + '[' + expressionParams.join(',') + ']'
           : ''
-      })`
+      })`,
     ).expression;
   } else {
     // 模版或者js
@@ -351,14 +326,14 @@ function getReplaceExpressionAndSaveLocale(path, isInTemplate, isSetup) {
         expressionParams?.length
           ? ',' + '[' + expressionParams.join(',') + ']'
           : ''
-      })`
+      })`,
     ).expression;
   }
 
   return replacement;
 }
 
-function saveLocaleAndGetkey(str) {
+function saveLocale(str) {
   const locale = str.trim();
   const key = generateHash(str);
   _locales[key] = locale;
@@ -389,7 +364,7 @@ function generateTemplate(templateAst, children = '') {
   if (templateAst?.children?.length) {
     children = templateAst.children.reduce(
       (result, child) => result + generateTemplate(child),
-      ''
+      '',
     );
   }
 
@@ -419,10 +394,10 @@ async function generateSfc(descriptor) {
             return attrCode;
           },
           // 初始值为空格，与type隔开
-          ' '
+          ' ',
         )}>${block.content}</${block.type}>`;
       }
-    }
+    },
   );
 
   const file = glob.sync('**/.prettierrc.*');

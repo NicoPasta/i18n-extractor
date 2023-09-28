@@ -1,6 +1,6 @@
 import path from 'path';
 import fse from 'fs-extra';
-import {glob} from 'glob';
+import { glob } from 'glob';
 import { Command } from 'commander';
 import { parse } from './parser.js';
 import { fileURLToPath } from 'node:url';
@@ -10,8 +10,8 @@ const __dirname = dirname(__filename);
 
 (() => {
   let options = {
-    pattern: '**/*.{vue.js}',
-    // pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
+    // pattern: '**/*.{vue.js}',
+    pattern: path.resolve(__dirname, './vuetest/*.{vue,js}'),
     ignore: ['node_modules/**'],
     importPath: null,
     importName: null,
@@ -22,7 +22,7 @@ const __dirname = dirname(__filename);
   try {
     const localPackageJson = fse.readFileSync(
       path.resolve(process.cwd(), 'package.json'),
-      'utf8'
+      'utf8',
     );
     // 读取package.json中的配置
     const packageParse = JSON.parse(localPackageJson);
@@ -69,9 +69,15 @@ const __dirname = dirname(__filename);
     })
     .parse(process.argv);
 
-  if (!options.importPath || !options.importName || !options.outputPath || !options.pattern || !options.ignore ) {
+  if (
+    !options.importPath ||
+    !options.importName ||
+    !options.outputPath ||
+    !options.pattern ||
+    !options.ignore
+  ) {
     console.error(
-      'Please set importName, importPath and outputPath, all of them are required'
+      'Please set importName, importPath and outputPath, all of them are required',
     );
     return;
   }
@@ -104,7 +110,7 @@ const __dirname = dirname(__filename);
         locales,
         options.importName,
         options.importPath,
-        filename
+        filename,
       );
 
       if (!res) {
@@ -132,7 +138,7 @@ const __dirname = dirname(__filename);
     fse.writeFileSync(
       path.join(options.outputPath, 'zh_CN.json'),
       JSON.stringify(locales, null, '\t'),
-      'utf8'
+      'utf8',
     );
     console.log('extract success');
   } else {
