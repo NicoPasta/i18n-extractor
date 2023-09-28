@@ -45,14 +45,5 @@
   },
   "peerDependencies": {
     "vue-i18n": ">=9.0.0"
-  },
-  "i18nExtractOptions": {
-    "ignore": [
-      "node_modules/**"
-    ],
-    "importPath": "/src/i18n",
-    "importName": "i18n",
-    "outputPath": "./src",
-    "outputFileName": "zh_CN.json"
   }
 }
