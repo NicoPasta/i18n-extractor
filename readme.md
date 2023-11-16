@@ -5,7 +5,7 @@
 ### 安装
 
 ```
-$ npm i -D vue3-i18n-extractor
+$ npm i vue3-i18n-extractor -g
 ```
 
 ### 使用方法
