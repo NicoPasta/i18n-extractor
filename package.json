@@ -1,13 +1,13 @@
 {
-  "name": "vue-i18n-transformer",
+  "name": "vue-i18n-extractor",
   "version": "1.0.1",
-  "description": "vue-i18n-transformer",
+  "description": "vue-i18n-extractor",
   "scripts": {
     "build": "webpack -c ./webpack.config.js --mode=production"
   },
   "type": "module",
   "bin": {
-    "trans": "./bin/index.js"
+    "extract": "./bin/index.js"
   },
   "files": [
     "bin",

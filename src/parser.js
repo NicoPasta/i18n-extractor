@@ -14,7 +14,7 @@ import {
 import prettier from 'prettier';
 import { glob } from 'glob';
 
-let _importName, _importPath, _locales;
+let _importName, _importPath, _locales, _fileType;
 const babelGenerator = generator.default;
 const template = babeltemplate.default;
 
@@ -27,7 +27,7 @@ export const parse = async (
   importName,
   // i18n路径
   importPath,
-  filename,
+  filename
 ) => {
   // 初始化内部变量
   _importName = importName;
@@ -35,46 +35,50 @@ export const parse = async (
   _locales = locales;
 
   let result = '';
-  const fileType = path.extname(filename);
+  _fileType = path.extname(filename);
 
-  if (!Object.values(supportedFileType).includes(fileType)) {
-    console.warn('unsupported filedtype: ' + fileType);
-    return;
+  if (!Object.values(supportedFileType).includes(_fileType)) {
+    console.warn('unsupported filedtype: ' + _fileType);
+    return {};
   }
 
+  // 检测代码字符串中没有中文字符
   if (!hasCN(code)) {
     console.warn('no chinese character in ' + filename);
-    return;
+    return {};
   }
 
-  if (fileType === supportedFileType.JS) {
+  // JS类型，直接交给babel
+  if (_fileType === supportedFileType.JS) {
     const jsAst = transformJS(code, false, true);
-    result = babelGenerator(jsAst).code;
-    // i18n注释
+    // 如果使用了魔法注释，那么跳过提取
     if (stop) {
+      stop = false;
       return { result, skip: true };
     }
+    // 使用修改后的AST生成code
+    result = babelGenerator(jsAst).code;
+
     return { result, skip: false };
   } else {
     let sfcDescriptor;
-
     sfcDescriptor = vueParser(code).descriptor;
-
     const templateAst = sfcDescriptor.template.ast;
     const scriptSetup = sfcDescriptor.scriptSetup?.content;
     const script = sfcDescriptor.script?.content;
-    sfcDescriptor.template.content = generateTemplate({
+    sfcDescriptor.template.content = {
       ...transformTemplate(templateAst),
       // 生成template内部的字符串，因此不要带template标签
       tag: '',
-    });
+    };
+    // script和scriptSetup的部分交给babel处理
     if (script)
       sfcDescriptor.script.content = babelGenerator(
-        transformJS(script, false, false),
+        transformJS(script, false, false)
       ).code;
     if (scriptSetup)
       sfcDescriptor.scriptSetup.content = babelGenerator(
-        transformJS(scriptSetup, false, true),
+        transformJS(scriptSetup, false, true)
       ).code;
     // 生成sfc
     result = await generateSfc(sfcDescriptor);
@@ -85,11 +89,12 @@ export const parse = async (
 
 function transformTemplate(ast) {
   if (ast.props.length) {
+    // props中有两种有中文字符的可能，指令绑定中的experssion和普通属性绑定中的字符串
     ast.props = ast.props.map((prop) => {
       // 指令
       if (prop.type === NodeTypes.DIRECTIVE && prop?.exp?.content) {
         const l = prop.exp.content.length;
-        // 指令内容为单引号字符串导致无法读取ast
+        // 指令内容为单引号字符串导致无法读取ast，将单引号替换为模版字符串引号
         if (prop.exp.content[0] === "'" && prop.exp.content[l - 1] === "'") {
           prop.exp.content = `\`${prop.exp.content.slice(1, l - 1)}\``;
         }
@@ -98,7 +103,7 @@ function transformTemplate(ast) {
         // 去掉空格和换行
         let c = prop.exp.content.replace(/[\n]/g, '');
 
-        //  babel会把{}识别为块作用域,所以要处理一下
+        //  babel会把{}识别为块作用域,所以要处理一下，拼接一个括号，让babel认为是一个表达式
         if (/^\{.*\}$/.test(c)) {
           c = `(${c})`;
         }
@@ -155,7 +160,7 @@ function transformTemplate(ast) {
         const c = child.content?.content.replace(/[\n]/g, '');
         const jsCode = generateDirectiveCode(
           // child.content?.content是js表达式
-          transformJS(c, true, false),
+          transformJS(c, true, false)
         );
         return {
           type: NodeTypes.INTERPOLATION,
@@ -187,28 +192,18 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
     Program: {
       enter(path) {
         path.container.comments.forEach((v) => {
+          // 使用了魔法注释
           if (v.value.includes('i18n-disable')) {
             stop = true;
           }
         });
         if (stop) {
+          // 停止遍历AST
           path.stop();
         }
         path.traverse({
           'StringLiteral|TemplateLiteral'(path) {
-            // if (path.node.leadingComments) {
-            //   // 过滤掉i18n-disable的注释
-            //   path.node.leadingComments = path.node.leadingComments.filter(
-            //     (comment, index) => {
-            //       if (comment.value.includes('i18n-disable')) {
-            //         path.node.skipTransform = true;
-            //         return false;
-            //       }
-            //       return true;
-            //     }
-            //   );
-            // }
-            //   导入导出的路径不变
+            //   导入导出的路径对应的字符串不变
             if (path.findParent((p) => p.isImportDeclaration())) {
               path.node.skipTransform = true;
             }
@@ -230,27 +225,24 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
         if (shouldImport) {
           // 导入_importName
           const importAst = template.ast(
-            `import ${_importName} from '${_importPath}'`,
+            `import ${_importName} from '${_importPath}'`
           );
+          // 如果应该新增加对i18n的导入，那么在body中加入一条import语句
           path.node.body.unshift(importAst);
         }
       },
     },
     StringLiteral(path) {
-      //
       if (path.node.skipTransform || !hasCN(path.node.value)) {
         return;
       }
-
       shouldImport = true;
-
       let replaceExpression = getReplaceExpression(path, isInTemplate, isSetup);
 
       path.replaceWith(replaceExpression);
       path.skip();
     },
     TemplateLiteral(path) {
-      //
       if (path.node.skipTransform) {
         return;
       }
@@ -260,9 +252,6 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
         return a;
       });
       if (!includeCNCharacter) return;
-      if (path.node.skipTransform) {
-        return;
-      }
 
       shouldImport = true;
 
@@ -279,7 +268,7 @@ const transformJS = (code, isInTemplate = false, isSetup = false) => {
   return ast;
 };
 
-// 去掉;
+// 去掉babel附带的”;“
 function generateDirectiveCode(ast) {
   return babelGenerator(ast, {
     compact: false,
@@ -293,7 +282,7 @@ function getReplaceExpression(path, isInTemplate, isSetup) {
   let value, expressionParams;
   if (path.isTemplateLiteral()) {
     expressionParams = path.node.expressions.map(
-      (item) => babelGenerator(item).code,
+      (item) => babelGenerator(item).code
     );
     value = path
       .get('quasis')
@@ -309,7 +298,7 @@ function getReplaceExpression(path, isInTemplate, isSetup) {
   const key = saveLocale(value);
 
   let replacement;
-  // this.$t
+  // this.$t，对应组件选项对象
   if (!isSetup && !isInTemplate) {
     replacement = template.ast(
       `this.$t('${key}'${
@@ -317,23 +306,24 @@ function getReplaceExpression(path, isInTemplate, isSetup) {
         expressionParams?.length
           ? ',' + '[' + expressionParams.join(',') + ']'
           : ''
-      })`,
+      })`
     ).expression;
   } else {
-    // 模版或者js
+    // 模版或者js，也包括setup
     replacement = template.ast(
       `${isInTemplate ? '$t' : _importName + '.global.t'}('${key}'${
         // 传递expressionParams
         expressionParams?.length
           ? ',' + '[' + expressionParams.join(',') + ']'
           : ''
-      })`,
+      })`
     ).expression;
   }
 
   return replacement;
 }
 
+// 保存提取出的中文字符，用md5做key
 function saveLocale(str) {
   const locale = str.trim();
   const key = generateHash(str);
@@ -365,7 +355,7 @@ function generateTemplate(templateAst, children = '') {
   if (templateAst?.children?.length) {
     children = templateAst.children.reduce(
       (result, child) => result + generateTemplate(child),
-      '',
+      ''
     );
   }
 
@@ -423,21 +413,23 @@ async function generateSfc(descriptor) {
             return attrCode;
           },
           // 初始值为空格，与type隔开
-          ' ',
+          ' '
         )}>${block.content}</${block.type}>`;
       }
-    },
+    }
   );
 
+  // 读取本地的prettier文件，对代码进行格式化
   const file = glob.sync('**/.prettierrc.*');
   if (file.length) {
     let prettierConfigpath = path.resolve(process.cwd(), file[0]);
     const options = await prettier.resolveConfig(prettierConfigpath);
-    options.parser = 'vue';
+    // 根据fileType确定如何格式化
+    options.parser = _fileType;
     return prettier.format(result, options);
   } else {
     return prettier.format(result, {
-      parser: 'vue',
+      parser: _fileType,
       semi: true,
       singleQuote: true,
     });

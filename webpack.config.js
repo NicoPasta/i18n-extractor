@@ -29,6 +29,7 @@ export default {
   },
 
   externalsType: 'commonjs',
+  // 外部依赖的列表
   externals: {
     '@babel/core': '@babel/core',
 
@@ -68,7 +69,7 @@ export default {
     prettier: {
       commonjs: 'prettier',
     },
-  }, // 外部依赖的列表
+  },
 
   target: 'node',
   devtool: 'source-map',
