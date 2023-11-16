@@ -1,7 +1,7 @@
 {
-  "name": "vue-i18n-extractor",
+  "name": "vue3-i18n-extractor",
   "version": "1.0.1",
-  "description": "vue-i18n-extractor",
+  "description": "vue3-i18n-extractor",
   "scripts": {
     "build": "webpack -c ./webpack.config.js --mode=production"
   },
