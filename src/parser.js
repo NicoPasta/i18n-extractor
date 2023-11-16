@@ -66,11 +66,11 @@ export const parse = async (
     const templateAst = sfcDescriptor.template.ast;
     const scriptSetup = sfcDescriptor.scriptSetup?.content;
     const script = sfcDescriptor.script?.content;
-    sfcDescriptor.template.content = {
+    sfcDescriptor.template.content = generateTemplate({
       ...transformTemplate(templateAst),
       // 生成template内部的字符串，因此不要带template标签
       tag: '',
-    };
+    });
     // script和scriptSetup的部分交给babel处理
     if (script)
       sfcDescriptor.script.content = babelGenerator(
@@ -338,8 +338,10 @@ function generateElementAttr(attrs) {
 function generateElement(node, children) {
   let attributes = '';
   if (node.props.length) {
+    // 注意要留出来一个空格
     attributes = ` ${generateElementAttr(node.props)}`;
   }
+  // 自闭合标签
   if (node.tag) {
     if (node.isSelfClosing || selfClosingTags.includes(node.tag)) {
       return `<${node.tag}${attributes} />`;
@@ -352,6 +354,7 @@ function generateElement(node, children) {
 }
 
 function generateTemplate(templateAst, children = '') {
+  // 先处理children
   if (templateAst?.children?.length) {
     children = templateAst.children.reduce(
       (result, child) => result + generateTemplate(child),
@@ -359,11 +362,11 @@ function generateTemplate(templateAst, children = '') {
     );
   }
 
-  // 元素节点
+  // 根据children拼成模版
   if (templateAst.type === 1) {
     return generateElement(templateAst, children);
   }
-  // 文本或者插值
+  // 递归的结束条件，文本或者插值，不再有children
   return templateAst.loc.source;
 }
 // function generateElement(node, childStr) {
@@ -395,6 +398,7 @@ function generateTemplate(templateAst, children = '') {
 //   return generateElement(ast, childStr);
 // }
 
+// 用每个模块的tag，attr，content， 拼接出整个.vue文件
 async function generateSfc(descriptor) {
   let result = '';
   const { template, script, scriptSetup, styles, customBlocks } = descriptor;
