@@ -1,11 +1,11 @@
-### vue-i18n-transfromer
+### vue-i18n-extractor
 
 基于 babel 和@vue/compiler-sfc，将当前工作目录（cwd）内的汉语字符串提取为 JSON 到指定输出目录，同时将原有内容替换为 i18n 的占位符（如$t()或 i8n.global.t()），以实现自动国际化。
 
 ### 安装
 
 ```
-$ npm i -D vue-i18n-transformer
+$ npm i -D vue-i18n-extractor
 ```
 
 ### 使用方法
@@ -13,10 +13,10 @@ $ npm i -D vue-i18n-transformer
 cli命令
 
 ```
-$ trans
+$ extract
 ```
 
-## 选项
+### 选项
 
 | 选项                           |                                                                          |
 | ------------------------------ | ------------------------------------------------------------------------ |
