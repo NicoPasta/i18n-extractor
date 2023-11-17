@@ -425,15 +425,16 @@ async function generateSfc(descriptor) {
 
   // 读取本地的prettier文件，对代码进行格式化
   const file = glob.sync('**/.prettierrc.*');
+  const parser = _fileType.slice(1) === 'js' ? 'babel' : 'vue';
   if (file.length) {
     let prettierConfigpath = path.resolve(process.cwd(), file[0]);
     const options = await prettier.resolveConfig(prettierConfigpath);
     // 根据fileType确定如何格式化
-    options.parser = _fileType.slice(1);
+    options.parser = parser;
     return prettier.format(result, options);
   } else {
     return prettier.format(result, {
-      parser: _fileType.slice(1),
+      parser: parser,
       semi: true,
       singleQuote: true,
     });
