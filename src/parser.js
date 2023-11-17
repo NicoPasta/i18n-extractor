@@ -429,11 +429,11 @@ async function generateSfc(descriptor) {
     let prettierConfigpath = path.resolve(process.cwd(), file[0]);
     const options = await prettier.resolveConfig(prettierConfigpath);
     // 根据fileType确定如何格式化
-    options.parser = _fileType;
+    options.parser = _fileType.slice(1);
     return prettier.format(result, options);
   } else {
     return prettier.format(result, {
-      parser: _fileType,
+      parser: _fileType.slice(1),
       semi: true,
       singleQuote: true,
     });
